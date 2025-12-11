@@ -1,7 +1,7 @@
 /**
  * OPTIMIZED City Scene - Reduced lag, better performance
  */
-import { useRef, useEffect, useMemo, useState } from 'react';
+import { useRef, useEffect, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';

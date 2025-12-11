@@ -7,7 +7,6 @@
 import {
   TelemetryFrame,
   TelemetryEvent,
-  TelemetryEventType,
   ConnectionStatus,
   TelemetryServiceConfig,
   defaultTelemetryConfig,
@@ -69,6 +68,11 @@ export class TelemetryService {
       isConnected: false,
       lastDisconnectedAt: Date.now(),
     };
+
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = undefined;
+    }
 
     // Stop all simulations
     this.simulationIntervals.forEach(interval => clearInterval(interval));
@@ -158,6 +162,10 @@ export class TelemetryService {
       );
 
       this.emitTelemetry(frame);
+
+      if (Math.random() < 0.001 && this.connectionStatus.isConnected) {
+        this.simulateConnectionLoss();
+      }
 
       // Randomly inject faults/warnings for demo
       if (Math.random() < 0.01) {

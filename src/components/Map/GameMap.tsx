@@ -44,7 +44,7 @@ const GameMap: React.FC = () => {
         const distance = Math.sqrt(dx * dx + dy * dy);
         // Approximate: 0.001 degrees ~= 100m, drone speed ~= 20 m/s
         const distanceMeters = distance * 100000;
-        const eta = Math.round(distanceMeters / 20);
+        const eta = Math.round(distanceMeters / 220); // match fast sim speed
         return eta;
     };
 

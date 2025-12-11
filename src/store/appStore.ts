@@ -3,7 +3,7 @@
  */
 
 import { create } from 'zustand';
-import { Drone, Hub, Incident, Mission, Position, MissionEvent, Snapshot, Statistics } from '../types/domain';
+import { Drone, Hub, Incident, Mission, Position, Snapshot, Statistics } from '../types/domain';
 import { DroneState, HubState, DroneStates, HubStates } from '../types/fsm';
 import { WeatherConditions } from '../types/safety';
 import { missionOrchestrator } from '../services/MissionOrchestrator';
@@ -14,8 +14,6 @@ import { AuditActions } from '../types/auth';
 import { nanoid } from 'nanoid';
 
 // Initial data for Riyadh - FULL CITY COVERAGE
-const RIYADH_CENTER: Position = [24.7136, 46.6753];
-
 // Initialize hubs and drones - Spread across entire Riyadh metropolitan area
 const createInitialHubs = (): Hub[] => {
   const positions: Position[] = [
@@ -140,6 +138,7 @@ interface AppState {
   launchMission: (missionId: string, launchedBy: string) => void;
   completeMission: (missionId: string, completedBy: string) => void;
   cancelMission: (missionId: string, cancelledBy: string, reason: string) => void;
+  requestReturnToHub: (missionId: string, requestedBy: string) => void;
   updateDrone: (droneId: string, updates: Partial<Drone>) => void;
   updateHub: (hubId: string, updates: Partial<Hub>) => void;
   captureSnapshot: (missionId: string, position: Position, altitude: number, heading: number, isThermal: boolean, capturedBy: string) => Snapshot;
@@ -160,7 +159,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   missions: [],
   snapshots: [],
   weather: safetyPolicyEngine.getWeatherConditions(),
-  autoDispatch: false,
+  autoDispatch: true,
   statistics: {
     totalIncidents: 0,
     resolvedIncidents: 0,
@@ -255,7 +254,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     const mission = missionOrchestrator.createMission(incident, hub, drone, createdBy);
 
     // Plan route
-    const safeRoute = geofenceManager.findSafeRoute(hub.position, incident.position);
     missionOrchestrator.planRoute(mission.id, hub.position, incident.position, violations);
     missionOrchestrator.markReady(mission.id);
 
@@ -318,6 +316,64 @@ export const useAppStore = create<AppState>((set, get) => ({
         missions: state.missions.map(m => m.id === missionId ? mission : m),
       }));
     }
+  },
+
+  requestReturnToHub: (missionId, requestedBy) => {
+    const mission = get().getMissionById(missionId);
+    if (!mission) return;
+
+    const incident = get().getIncidentById(mission.incidentId);
+    const drone = get().getDroneById(mission.droneId);
+    const hub = drone ? get().getHubById(drone.hubId) : undefined;
+
+    missionOrchestrator.initiateReturn(missionId, 'Manual resolve');
+    const orchestratorMission = missionOrchestrator.getMission(missionId);
+
+    set(state => ({
+      missions: state.missions.map(m =>
+        m.id === missionId
+          ? {
+              ...m,
+              ...(orchestratorMission || {}),
+              metadata: { ...m.metadata, returnRequested: true },
+            }
+          : m
+      ),
+      incidents: incident
+        ? state.incidents.map(i =>
+            i.id === incident.id
+              ? {
+                  ...i,
+                  status: 'IN_PROGRESS', // keep visible until drone is home
+                  resolvedAt: undefined,
+                }
+              : i
+          )
+        : state.incidents,
+      drones: drone
+        ? state.drones.map(d =>
+            d.id === drone.id
+              ? {
+                  ...d,
+                  state: DroneStates.RETURNING,
+                  speed: 220,
+                  altitude: 60,
+                  updatedAt: Date.now(),
+                }
+              : d
+          )
+        : state.drones,
+      hubs: hub
+        ? state.hubs.map(h =>
+            h.id === hub.id ? { ...h, state: HubStates.DOOR_OPEN, updatedAt: Date.now() } : h
+          )
+        : state.hubs,
+    }));
+
+    auditLogger.log(requestedBy, 'Operator', 'OPERATOR', AuditActions.MISSION_COMPLETED, {
+      missionId,
+      reason: 'Manual resolve/return requested',
+    }, { entityType: 'MISSION', entityId: missionId });
   },
 
   updateDrone: (droneId, updates) => {

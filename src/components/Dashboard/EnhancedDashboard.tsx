@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAppStore } from '../../store/appStore';
 import { useAuthStore } from '../../store/authStore';
 import { Permissions } from '../../types/auth';
-import { AlertTriangle, Battery, Navigation, Plus, Eye, Radio } from 'lucide-react';
+import { Battery, Navigation, Plus, Eye, Radio } from 'lucide-react';
 import { Drone } from '../../types/domain';
 import toast from 'react-hot-toast';
 
@@ -100,6 +100,13 @@ const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({ onDroneSelect }) 
   const getDroneStatusText = (state: string) => {
     return state.replace(/_/g, ' ');
   };
+
+  const sortedDrones = [...drones].sort((a, b) => {
+    const aActive = a.activeMissionId ? 1 : 0;
+    const bActive = b.activeMissionId ? 1 : 0;
+    if (aActive !== bActive) return bActive - aActive;
+    return (b.updatedAt || 0) - (a.updatedAt || 0);
+  });
 
   return (
     <div className="flex flex-col h-full p-4 space-y-3 overflow-hidden">
@@ -209,7 +216,7 @@ const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({ onDroneSelect }) 
           </span>
         </div>
         <div className="space-y-2 overflow-y-auto flex-1">
-          {drones.map(drone => {
+          {sortedDrones.map(drone => {
             const hub = hubs.find(h => h.id === drone.hubId);
             return (
               <div key={drone.id} className="bg-gray-700/50 p-2 rounded hover:bg-gray-700 transition-colors group">

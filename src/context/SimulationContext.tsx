@@ -160,9 +160,9 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
         const dx = targetPosition[0] - dronePosition[0];
         const dy = targetPosition[1] - dronePosition[1];
         const distance = Math.sqrt(dx * dx + dy * dy);
-        // Approximate: 0.01 degrees ≈ 1.1km, drone speed ~100km/h = ~1.67km/min
+        // Approximate: 0.01 degrees ≈ 1.1km, drone speed ~400km/h = ~6.67km/min
         const distanceKm = distance * 111; // rough conversion
-        const timeMinutes = distanceKm / 1.67;
+        const timeMinutes = distanceKm / 3.67;
         return Math.round(timeMinutes * 60);
     };
 

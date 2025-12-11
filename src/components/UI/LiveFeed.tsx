@@ -1,6 +1,6 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { Thermometer, Wind, Zap, X, Volume2, Lightbulb, Camera, Gamepad2, Mic } from 'lucide-react';
-import OptimizedCityScene from '../3D/OptimizedCityScene';
+import SatelliteScene from '../3D/SatelliteScene';
 import toast from 'react-hot-toast';
 
 // Loading component for 3D scene
@@ -38,6 +38,7 @@ interface LiveFeedProps {
         battery: number;
     }>;
     onDroneSwitch?: (droneId: string) => void;
+    onResolveIncident?: () => void;
     onClose: () => void;
 }
 
@@ -52,7 +53,7 @@ const BROADCAST_MESSAGES = [
     "Fire department notified. Evacuate the area."
 ];
 
-const LiveFeed: React.FC<LiveFeedProps> = ({ drone, incident, availableDrones, onDroneSwitch, onClose }) => {
+const LiveFeed: React.FC<LiveFeedProps> = ({ drone, incident, availableDrones, onDroneSwitch, onResolveIncident, onClose }) => {
     const [thermalMode, setThermalMode] = useState(false);
     const [recordingTime, setRecordingTime] = useState(0);
     const [isFullScreen, setIsFullScreen] = useState(false);
@@ -88,8 +89,10 @@ const LiveFeed: React.FC<LiveFeedProps> = ({ drone, incident, availableDrones, o
     };
 
     const handleResolveIncident = () => {
-        toast.success('Incident marked as resolved');
-        setTimeout(() => onClose(), 1000);
+        if (onResolveIncident) {
+            onResolveIncident();
+        }
+        toast.success('Incident marked as resolved. Returning to hub.');
     };
 
     const formatTime = (seconds: number) => {
@@ -199,7 +202,7 @@ const LiveFeed: React.FC<LiveFeedProps> = ({ drone, incident, availableDrones, o
             <div className={`relative bg-gray-800 overflow-hidden group ${isFullScreen ? 'h-[calc(100vh-100px)]' : 'h-64'}`}>
                 <div className={`w-full h-full ${thermalMode ? 'brightness-150 contrast-125 hue-rotate-180 invert' : ''}`}>
                     <Suspense fallback={<SceneLoader />}>
-                        <OptimizedCityScene thermalMode={thermalMode} />
+                        <SatelliteScene thermalMode={thermalMode} />
                     </Suspense>
                 </div>
 

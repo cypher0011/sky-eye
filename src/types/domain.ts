@@ -108,7 +108,7 @@ export const IncidentSchema = z.object({
   assignedMissionId: z.string().optional(),
   slaTarget: z.number().optional(),
   resolvedAt: z.number().optional(),
-  metadata: z.record(z.any()).optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
 });
 
 // ============================================================================
@@ -305,7 +305,7 @@ export const MissionSchema = z.object({
   completedAt: z.number().optional(),
   createdBy: z.string(),
   timeline: z.array(z.any()), // MissionEventSchema
-  metadata: z.record(z.any()),
+  metadata: z.record(z.string(), z.any()),
 });
 
 // ============================================================================
@@ -354,7 +354,7 @@ export const MissionEventSchema = z.object({
   type: z.string(),
   timestamp: z.number(),
   actor: z.string(),
-  payload: z.record(z.any()),
+  payload: z.record(z.string(), z.any()),
   description: z.string(),
 });
 
@@ -389,7 +389,7 @@ export const SnapshotSchema = z.object({
   imageUrl: z.string().optional(),
   isThermal: z.boolean(),
   metadata: z.object({
-    cameraSettings: z.record(z.any()).optional(),
+    cameraSettings: z.record(z.string(), z.any()).optional(),
     detections: z.array(z.any()).optional(),
     annotations: z.array(z.any()).optional(),
   }),
@@ -418,7 +418,7 @@ export const StatisticsSchema = z.object({
   resolvedIncidents: z.number().int().min(0),
   activeIncidents: z.number().int().min(0),
   avgResponseTime: z.number().min(0),
-  incidentsByType: z.record(z.number()),
+  incidentsByType: z.record(z.string(), z.number()),
   missionSuccessRate: z.number().min(0).max(1),
   totalFlightHours: z.number().min(0),
   dronesActive: z.number().int().min(0),

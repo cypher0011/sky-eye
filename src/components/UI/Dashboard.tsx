@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSimulation, Position } from '../../context/SimulationContext';
-import { AlertTriangle, Battery, Navigation, ShieldCheck, CheckCircle, Clock, Flame, Car, HeartPulse, Shield, Plus } from 'lucide-react';
+import { AlertTriangle, Battery, Navigation, CheckCircle, Clock, Flame, Car, HeartPulse, Shield, Plus } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
     const {

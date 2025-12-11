@@ -7,6 +7,7 @@ import {
   Mission,
   MissionStatus,
   MissionEvent,
+  MissionEventType,
   MissionEventTypes,
   Incident,
   Hub,
@@ -14,7 +15,6 @@ import {
   RoutePlan,
   Position,
 } from '../types/domain';
-import { DroneStates, HubStates, DroneEvents, HubEvents } from '../types/fsm';
 import { nanoid } from 'nanoid';
 
 export class MissionOrchestrator {
@@ -292,7 +292,7 @@ export class MissionOrchestrator {
 
   private addEvent(
     missionId: string,
-    type: string,
+    type: MissionEventType,
     actor: string,
     payload: Record<string, any>,
     description: string

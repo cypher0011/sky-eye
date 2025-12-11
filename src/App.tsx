@@ -12,12 +12,16 @@ import { evidenceExporter } from './services/EvidenceExporter';
 import { Permissions } from './types/auth';
 import { Drone } from './types/domain';
 import { Drone as OldDrone, Incident as OldIncident } from './context/SimulationContext';
+import { useMissionSimulation } from './hooks/useMissionSimulation';
 
 const AppContent = () => {
   const { user, logout, hasPermission } = useAuthStore();
-  const { incidents, snapshots, getMissionById, getMissionsByIncident, getIncidentById, getDroneById } = useAppStore();
+  const { incidents, snapshots, getMissionById, getMissionsByIncident, getIncidentById, getDroneById, requestReturnToHub } = useAppStore();
   const [selectedDrone, setSelectedDrone] = useState<Drone | null>(null);
   const [showTimeline, setShowTimeline] = useState(false);
+
+  // Start the mission simulation loop (auto-dispatch + movement)
+  useMissionSimulation();
 
   // Derive mission and incident from selected drone
   const selectedMission = selectedDrone?.activeMissionId ? getMissionById(selectedDrone.activeMissionId) : null;
@@ -69,6 +73,14 @@ const AppContent = () => {
     if (drone) {
       setSelectedDrone(drone);
     }
+  };
+
+  const handleResolveAndReturn = () => {
+    if (!selectedDrone?.activeMissionId) {
+      toast.error('No active mission for this drone');
+      return;
+    }
+    requestReturnToHub(selectedDrone.activeMissionId, user?.email || 'system');
   };
 
   // Welcome toast
@@ -177,6 +189,7 @@ const AppContent = () => {
             incident={oldIncident}
             availableDrones={oldAvailableDrones.length > 0 ? oldAvailableDrones : undefined}
             onDroneSwitch={handleDroneSwitch}
+            onResolveIncident={handleResolveAndReturn}
             onClose={() => setSelectedDrone(null)}
           />
         )}

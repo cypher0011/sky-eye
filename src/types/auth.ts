@@ -205,7 +205,7 @@ export const AuditLogEntrySchema = z.object({
   action: z.string(),
   entityType: z.string().optional(),
   entityId: z.string().optional(),
-  details: z.record(z.any()),
+  details: z.record(z.string(), z.any()),
   ipAddress: z.string().optional(),
   success: z.boolean(),
   errorMessage: z.string().optional(),

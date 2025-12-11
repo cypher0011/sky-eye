@@ -2,8 +2,10 @@ import { describe, it, expect } from 'vitest';
 import {
   DroneStates,
   DroneEvents,
+  DroneState,
   HubStates,
   HubEvents,
+  HubState,
   canTransition,
   getNextState,
   droneTransitions,
@@ -55,7 +57,7 @@ describe('Drone State Machine', () => {
   });
 
   it('should complete full mission cycle', () => {
-    let state = DroneStates.DOCKED;
+    let state: DroneState = DroneStates.DOCKED;
 
     state = getNextState(state, DroneEvents.PREFLIGHT_CHECK, droneTransitions)!;
     expect(state).toBe(DroneStates.PREFLIGHT);
@@ -97,7 +99,7 @@ describe('Hub State Machine', () => {
   });
 
   it('should handle launch sequence', () => {
-    let state = HubStates.READY;
+    let state: HubState = HubStates.READY;
 
     state = getNextState(state, HubEvents.PREPARE_LAUNCH, hubTransitions)!;
     expect(state).toBe(HubStates.DOOR_OPENING);
