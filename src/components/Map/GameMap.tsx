@@ -1,7 +1,7 @@
 import React from 'react';
 import { MapContainer, TileLayer, Circle, Marker, Popup, Polyline, Tooltip } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { useSimulation } from '../../context/SimulationContext';
+import { useAppStore } from '../../store/appStore';
 import * as L from 'leaflet';
 import droneIconImg from '../../img/drone_test.png';
 import stationIconImg from '../../img/dock_hub.png';
@@ -35,7 +35,18 @@ const fixLeafletIcon = () => {
 fixLeafletIcon();
 
 const GameMap: React.FC = () => {
-    const { stations, incidents, drones, calculateETA } = useSimulation();
+    const { hubs, incidents, drones, missions, getIncidentById } = useAppStore();
+
+    // Calculate ETA (simple distance-based estimation)
+    const calculateETA = (pos1: [number, number], pos2: [number, number]) => {
+        const dx = pos1[0] - pos2[0];
+        const dy = pos1[1] - pos2[1];
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        // Approximate: 0.001 degrees ~= 100m, drone speed ~= 20 m/s
+        const distanceMeters = distance * 100000;
+        const eta = Math.round(distanceMeters / 20);
+        return eta;
+    };
 
     return (
         <MapContainer
@@ -49,23 +60,23 @@ const GameMap: React.FC = () => {
                 url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
             />
 
-            {/* Stations */}
-            {stations.map(station => (
-                <React.Fragment key={station.id}>
+            {/* Hubs (Stations) */}
+            {hubs.map(hub => (
+                <React.Fragment key={hub.id}>
                     {/* Radar Effect */}
                     <Circle
-                        center={station.position}
-                        radius={station.coverageRadius}
+                        center={hub.position}
+                        radius={hub.coverageRadius}
                         pathOptions={{ color: 'transparent', fillColor: 'rgba(59, 130, 246, 0.2)', className: 'radar-effect' }}
                     />
                     {/* Coverage Area */}
                     <Circle
-                        center={station.position}
-                        radius={station.coverageRadius}
+                        center={hub.position}
+                        radius={hub.coverageRadius}
                         pathOptions={{ color: 'rgba(59, 130, 246, 0.5)', fillColor: 'rgba(59, 130, 246, 0.05)', weight: 1, dashArray: '4, 4' }}
                     />
-                    <Marker position={station.position} icon={stationIcon}>
-                        <Popup>{station.name}</Popup>
+                    <Marker position={hub.position} icon={stationIcon}>
+                        <Popup>{hub.name}</Popup>
                     </Marker>
                 </React.Fragment>
             ))}
@@ -96,24 +107,34 @@ const GameMap: React.FC = () => {
 
             {/* Drones & Flight Paths */}
             {drones.map(drone => {
-                const targetIncident = incidents.find(i => i.id === drone.targetIncidentId);
-                const eta = targetIncident && drone.status === 'MOVING_TO_INCIDENT'
+                // Get target incident from active mission
+                const activeMission = drone.activeMissionId
+                    ? missions.find(m => m.id === drone.activeMissionId)
+                    : null;
+                const targetIncident = activeMission
+                    ? getIncidentById(activeMission.incidentId)
+                    : null;
+
+                const isEnroute = drone.state === 'ENROUTE' || drone.state === 'ON_SCENE' || drone.state === 'ORBIT';
+                const isReturning = drone.state === 'RETURNING';
+
+                const eta = targetIncident && isEnroute
                     ? calculateETA(drone.position, targetIncident.position)
                     : null;
 
                 return (
                     <React.Fragment key={drone.id}>
                         {/* Flight Path Line */}
-                        {drone.status === 'MOVING_TO_INCIDENT' && targetIncident && (
+                        {isEnroute && targetIncident && (
                             <Polyline
                                 positions={[drone.position, targetIncident.position]}
                                 pathOptions={{ color: '#3b82f6', weight: 2, dashArray: '5, 10', opacity: 0.6 }}
                             />
                         )}
                         {/* Return Path Line */}
-                        {drone.status === 'RETURNING' && (
+                        {isReturning && (
                             <Polyline
-                                positions={[drone.position, stations.find(s => s.id === drone.stationId)?.position || [0, 0]]}
+                                positions={[drone.position, hubs.find(h => h.id === drone.hubId)?.position || [0, 0]]}
                                 pathOptions={{ color: '#6b7280', weight: 2, dashArray: '5, 5', opacity: 0.4 }}
                             />
                         )}
@@ -128,8 +149,8 @@ const GameMap: React.FC = () => {
                             <Popup>
                                 <div className="text-xs font-mono">
                                     <strong>DRONE ID:</strong> {drone.id}<br />
-                                    <strong>BATTERY:</strong> {Math.round(drone.battery)}%<br />
-                                    <strong>STATUS:</strong> {drone.status}
+                                    <strong>BATTERY:</strong> {Math.round(drone.health.battery)}%<br />
+                                    <strong>STATE:</strong> {drone.state}
                                     {eta !== null && <><br /><strong>ETA:</strong> {eta}s</>}
                                 </div>
                             </Popup>

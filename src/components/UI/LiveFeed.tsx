@@ -1,7 +1,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
-import { Drone, Incident, useSimulation } from '../../context/SimulationContext';
-import { Thermometer, Wind, Zap, X, Volume2, Lightbulb, Camera, Gamepad2, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, RotateCw, Maximize, Minimize } from 'lucide-react';
-import CityScene from '../3D/CityScene';
+import { Thermometer, Wind, Zap, X, Volume2, Lightbulb, Camera, Gamepad2, Mic } from 'lucide-react';
+import OptimizedCityScene from '../3D/OptimizedCityScene';
+import toast from 'react-hot-toast';
 
 // Loading component for 3D scene
 const SceneLoader = () => (
@@ -14,8 +14,30 @@ const SceneLoader = () => (
 );
 
 interface LiveFeedProps {
-    drone: Drone;
-    incident: Incident;
+    drone: {
+        id: string;
+        position: [number, number];
+        battery: number;
+    };
+    incident: {
+        id: string;
+        type: string;
+        position: [number, number];
+        severity: string;
+        aiAnalysis?: {
+            peopleCount: number;
+            injuredCount: number;
+            vehicleCount: number;
+            threatLevel: number;
+            hazards: string[];
+        };
+    };
+    availableDrones?: Array<{
+        id: string;
+        position: [number, number];
+        battery: number;
+    }>;
+    onDroneSwitch?: (droneId: string) => void;
     onClose: () => void;
 }
 
@@ -30,15 +52,18 @@ const BROADCAST_MESSAGES = [
     "Fire department notified. Evacuate the area."
 ];
 
-const LiveFeed: React.FC<LiveFeedProps> = ({ drone, incident, onClose }) => {
-    const { broadcastMessage, resolveIncident } = useSimulation();
+const LiveFeed: React.FC<LiveFeedProps> = ({ drone, incident, availableDrones, onDroneSwitch, onClose }) => {
     const [thermalMode, setThermalMode] = useState(false);
     const [recordingTime, setRecordingTime] = useState(0);
     const [isFullScreen, setIsFullScreen] = useState(false);
     const [lightsOn, setLightsOn] = useState(false);
     const [showBroadcastMenu, setShowBroadcastMenu] = useState(false);
     const [showControls, setShowControls] = useState(false);
-    const [customMessage, setCustomMessage] = useState('');
+    const [isPushToTalking, setIsPushToTalking] = useState(false);
+    const [isRecording, setIsRecording] = useState(false);
+    const [showDroneSelector, setShowDroneSelector] = useState(false);
+
+    const hasMultipleDrones = availableDrones && availableDrones.length > 1;
 
     useEffect(() => {
         const interval = setInterval(() => setRecordingTime(t => t + 1), 1000);
@@ -46,8 +71,25 @@ const LiveFeed: React.FC<LiveFeedProps> = ({ drone, incident, onClose }) => {
     }, []);
 
     const handleBroadcast = (message: string) => {
-        broadcastMessage(drone.id, message);
+        toast.success(`Broadcasting: "${message}"`);
         setShowBroadcastMenu(false);
+    };
+
+    const handlePushToTalk = (action: 'start' | 'stop') => {
+        if (action === 'start') {
+            setIsPushToTalking(true);
+            setIsRecording(true);
+            toast('🎤 Push-to-Talk ACTIVE', { duration: 1000 });
+        } else {
+            setIsPushToTalking(false);
+            setIsRecording(false);
+            toast.success('Message broadcasted');
+        }
+    };
+
+    const handleResolveIncident = () => {
+        toast.success('Incident marked as resolved');
+        setTimeout(() => onClose(), 1000);
     };
 
     const formatTime = (seconds: number) => {
@@ -60,6 +102,29 @@ const LiveFeed: React.FC<LiveFeedProps> = ({ drone, incident, onClose }) => {
     const altitude = 120 + Math.sin(Date.now() / 1000) * 2;
     const speed = 0; // Hovering
 
+    // Keyboard handler for push-to-talk (hold spacebar)
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.code === 'KeyT' && !isPushToTalking) {
+                handlePushToTalk('start');
+            }
+        };
+
+        const handleKeyUp = (e: KeyboardEvent) => {
+            if (e.code === 'KeyT' && isPushToTalking) {
+                handlePushToTalk('stop');
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
+    }, [isPushToTalking]);
+
     return (
         <div className={`fixed z-[1000] bg-black border-2 border-drone-blue rounded-lg overflow-hidden shadow-2xl transition-all duration-300 ${isFullScreen ? 'inset-0 w-full h-full' : 'top-4 right-4 w-96'
             }`}>
@@ -68,11 +133,61 @@ const LiveFeed: React.FC<LiveFeedProps> = ({ drone, incident, onClose }) => {
                 <div className="flex items-center space-x-2">
                     <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
                     <span className="text-red-500 font-mono text-xs font-bold">LIVE FEED</span>
-                    <span className="text-gray-400 font-mono text-xs">DRONE-{drone.id}</span>
+                    <div className="relative">
+                        <button
+                            onClick={() => hasMultipleDrones && setShowDroneSelector(!showDroneSelector)}
+                            className={`text-gray-400 font-mono text-xs flex items-center gap-1 ${hasMultipleDrones ? 'hover:text-white cursor-pointer' : ''}`}
+                        >
+                            DRONE-{drone.id}
+                            {hasMultipleDrones && (
+                                <span className="text-[10px] text-blue-400">({availableDrones.length} total)</span>
+                            )}
+                        </button>
+                        {/* Drone Selector Dropdown */}
+                        {showDroneSelector && hasMultipleDrones && (
+                            <div className="absolute top-full left-0 mt-1 bg-gray-800 border border-blue-500 rounded shadow-lg min-w-[200px] z-50">
+                                <div className="p-2 border-b border-gray-700 text-[10px] text-blue-400 font-bold">
+                                    SWITCH DRONE CONTROL
+                                </div>
+                                <div className="max-h-48 overflow-y-auto">
+                                    {availableDrones.map((d) => (
+                                        <button
+                                            key={d.id}
+                                            onClick={() => {
+                                                if (onDroneSwitch && d.id !== drone.id) {
+                                                    onDroneSwitch(d.id);
+                                                    toast.success(`Switched to DRONE-${d.id}`);
+                                                }
+                                                setShowDroneSelector(false);
+                                            }}
+                                            className={`w-full text-left p-2 text-xs transition-colors ${
+                                                d.id === drone.id
+                                                    ? 'bg-blue-600 text-white'
+                                                    : 'hover:bg-gray-700 text-gray-300'
+                                            }`}
+                                        >
+                                            <div className="flex justify-between items-center">
+                                                <span className="font-mono">DRONE-{d.id}</span>
+                                                <span className={`text-[10px] ${
+                                                    d.battery >= 60 ? 'text-green-400' :
+                                                    d.battery >= 30 ? 'text-yellow-400' : 'text-red-400'
+                                                }`}>
+                                                    {Math.round(d.battery)}%
+                                                </span>
+                                            </div>
+                                            {d.id === drone.id && (
+                                                <div className="text-[9px] text-blue-300 mt-1">● ACTIVE</div>
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
                 <div className="flex items-center space-x-2">
                     <button onClick={() => setIsFullScreen(!isFullScreen)} className="text-gray-400 hover:text-white">
-                        {isFullScreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+                        {isFullScreen ? '−' : '□'}
                     </button>
                     <button onClick={onClose} className="text-gray-400 hover:text-white">
                         <X className="w-4 h-4" />
@@ -84,7 +199,7 @@ const LiveFeed: React.FC<LiveFeedProps> = ({ drone, incident, onClose }) => {
             <div className={`relative bg-gray-800 overflow-hidden group ${isFullScreen ? 'h-[calc(100vh-100px)]' : 'h-64'}`}>
                 <div className={`w-full h-full ${thermalMode ? 'brightness-150 contrast-125 hue-rotate-180 invert' : ''}`}>
                     <Suspense fallback={<SceneLoader />}>
-                        <CityScene thermalMode={thermalMode} />
+                        <OptimizedCityScene thermalMode={thermalMode} />
                     </Suspense>
                 </div>
 
@@ -122,7 +237,7 @@ const LiveFeed: React.FC<LiveFeedProps> = ({ drone, incident, onClose }) => {
                         </div>
                     )}
                     <div className="mt-2 text-center text-white/50 text-[10px]">
-                        CONTROLS: W/A/S/D to Move | SPACE/SHIFT to Ascend/Descend
+                        CONTROLS: W/A/S/D to Move | SPACE/SHIFT to Ascend/Descend | T for Push-to-Talk
                     </div>
                 </div>
             </div>
@@ -158,6 +273,7 @@ const LiveFeed: React.FC<LiveFeedProps> = ({ drone, incident, onClose }) => {
                         SPEAK
                     </button>
                     <button
+                        onClick={() => toast.success('Snapshot captured!')}
                         className="flex flex-col items-center justify-center p-2 rounded text-[10px] font-bold bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors"
                         title="Take Screenshot"
                     >
@@ -180,66 +296,35 @@ const LiveFeed: React.FC<LiveFeedProps> = ({ drone, incident, onClose }) => {
                             </button>
                         ))}
                         <div className="border-t border-gray-600 pt-2 mt-2">
-                            <div className="text-[10px] text-purple-400 font-bold mb-1">CUSTOM MESSAGE:</div>
-                            <div className="flex gap-1">
-                                <input
-                                    type="text"
-                                    value={customMessage}
-                                    onChange={(e) => setCustomMessage(e.target.value)}
-                                    placeholder="Type your message..."
-                                    className="flex-1 bg-gray-700 text-[10px] p-1.5 rounded border border-gray-600 focus:border-purple-500 outline-none"
-                                />
-                                <button
-                                    onClick={() => {
-                                        if (customMessage.trim()) {
-                                            handleBroadcast(customMessage);
-                                            setCustomMessage('');
-                                        }
-                                    }}
-                                    className="bg-purple-600 hover:bg-purple-700 px-2 rounded text-[10px]"
-                                >
-                                    Send
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Drone Controls Panel */}
-                {showControls && (
-                    <div className="bg-gray-800 p-3 rounded border border-cyan-500">
-                        <div className="text-[10px] text-cyan-400 font-bold mb-2">DRONE MANUAL CONTROL</div>
-                        <div className="grid grid-cols-3 gap-1 mb-2">
-                            <div></div>
-                            <button className="bg-gray-700 hover:bg-cyan-600 p-2 rounded flex items-center justify-center">
-                                <ArrowUp className="w-4 h-4" />
+                            <div className="text-[10px] text-purple-400 font-bold mb-2">PUSH-TO-TALK:</div>
+                            <button
+                                onMouseDown={() => handlePushToTalk('start')}
+                                onMouseUp={() => handlePushToTalk('stop')}
+                                onMouseLeave={() => isPushToTalking && handlePushToTalk('stop')}
+                                className={`w-full p-3 rounded font-bold text-sm transition-all ${
+                                    isPushToTalking
+                                        ? 'bg-red-600 text-white scale-105'
+                                        : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                                }`}
+                            >
+                                <div className="flex items-center justify-center space-x-2">
+                                    <Mic className={`w-5 h-5 ${isPushToTalking ? 'animate-pulse' : ''}`} />
+                                    <span>
+                                        {isPushToTalking ? 'BROADCASTING...' : 'HOLD TO TALK'}
+                                    </span>
+                                </div>
+                                {!isPushToTalking && (
+                                    <div className="text-[9px] text-gray-500 mt-1">
+                                        Press 'T' key or hold this button
+                                    </div>
+                                )}
+                                {isRecording && (
+                                    <div className="flex items-center justify-center space-x-1 mt-2">
+                                        <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                                        <span className="text-xs">RECORDING</span>
+                                    </div>
+                                )}
                             </button>
-                            <div></div>
-                            <button className="bg-gray-700 hover:bg-cyan-600 p-2 rounded flex items-center justify-center">
-                                <ArrowLeft className="w-4 h-4" />
-                            </button>
-                            <button className="bg-gray-700 hover:bg-cyan-600 p-2 rounded flex items-center justify-center">
-                                <RotateCw className="w-3 h-3" />
-                            </button>
-                            <button className="bg-gray-700 hover:bg-cyan-600 p-2 rounded flex items-center justify-center">
-                                <ArrowRight className="w-4 h-4" />
-                            </button>
-                            <div></div>
-                            <button className="bg-gray-700 hover:bg-cyan-600 p-2 rounded flex items-center justify-center">
-                                <ArrowDown className="w-4 h-4" />
-                            </button>
-                            <div></div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-1">
-                            <button className="bg-gray-700 hover:bg-cyan-600 p-2 rounded text-[10px] font-bold flex items-center justify-center gap-1">
-                                <ArrowUp className="w-3 h-3" /> ALTITUDE +
-                            </button>
-                            <button className="bg-gray-700 hover:bg-cyan-600 p-2 rounded text-[10px] font-bold flex items-center justify-center gap-1">
-                                <ArrowDown className="w-3 h-3" /> ALTITUDE -
-                            </button>
-                        </div>
-                        <div className="mt-2 text-[9px] text-gray-500 text-center">
-                            Manual override active • Use with caution
                         </div>
                     </div>
                 )}
@@ -277,7 +362,7 @@ const LiveFeed: React.FC<LiveFeedProps> = ({ drone, incident, onClose }) => {
                 {/* Action Buttons */}
                 <div className="grid grid-cols-2 gap-2">
                     <button
-                        onClick={() => resolveIncident(incident.id)}
+                        onClick={handleResolveIncident}
                         className="bg-green-600 hover:bg-green-700 text-white py-2 rounded text-xs font-bold transition-colors"
                     >
                         MARK RESOLVED
