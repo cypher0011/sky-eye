@@ -29,7 +29,7 @@ const DetectionOverlay: React.FC<DetectionOverlayProps> = ({
     ctx.clearRect(0, 0, width, height);
 
     // Draw each detection
-    detections.forEach((detection, index) => {
+    detections.forEach((detection) => {
       const [x1, y1, x2, y2] = detection.bbox;
 
       // Scale bounding box to canvas size
@@ -39,7 +39,7 @@ const DetectionOverlay: React.FC<DetectionOverlayProps> = ({
       const boxY2 = (y2 / 640) * height;
 
       // Draw bounding box
-      ctx.strokeStyle = getColorForClass(detection.class, index);
+      ctx.strokeStyle = getColorForClass(detection.class);
       ctx.lineWidth = 3;
       ctx.strokeRect(boxX1, boxY1, boxX2 - boxX1, boxY2 - boxY1);
 
@@ -55,7 +55,7 @@ const DetectionOverlay: React.FC<DetectionOverlayProps> = ({
         const textHeight = 20;
 
         // Background
-        ctx.fillStyle = getColorForClass(detection.class, index);
+        ctx.fillStyle = getColorForClass(detection.class);
         ctx.fillRect(boxX1, boxY1 - textHeight - 4, textWidth + 8, textHeight + 4);
 
         // Text
@@ -98,7 +98,7 @@ const DetectionOverlay: React.FC<DetectionOverlayProps> = ({
 };
 
 // Helper function to get color for object class
-const getColorForClass = (className: string, index: number): string => {
+const getColorForClass = (className: string): string => {
   const colors = [
     '#ef4444', // red
     '#3b82f6', // blue

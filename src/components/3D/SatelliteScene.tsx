@@ -89,7 +89,7 @@ const TerrainTile = ({
           displacementScale={25} // Balanced terrain
           roughness={0.9}
           metalness={0.0}
-          normalScale={[1, 1]}
+          normalScale={new THREE.Vector2(1, 1)}
         />
       ) : (
         <meshStandardMaterial color="#8B7355" roughness={0.9} />

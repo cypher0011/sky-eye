@@ -71,14 +71,18 @@ export const AtmosphericHaze = () => {
 export const VolumetricClouds = () => {
   const cloudRefs = useRef<THREE.Mesh[]>([]);
 
-  const clouds = [];
+  const clouds: Array<{
+    position: [number, number, number];
+    scale: number;
+    speed: number;
+  }> = [];
   for (let i = 0; i < 20; i++) {
     clouds.push({
       position: [
         (Math.random() - 0.5) * 600,
         60 + Math.random() * 40,
         (Math.random() - 0.5) * 600
-      ] as [number, number, number],
+      ],
       scale: 20 + Math.random() * 30,
       speed: 0.05 + Math.random() * 0.1
     });
