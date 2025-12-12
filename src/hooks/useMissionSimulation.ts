@@ -9,10 +9,14 @@ import { safetyPolicyEngine } from '../services/SafetyPolicyEngine';
 type DroneUpdate = Omit<Partial<Drone>, 'health'> & { health?: Partial<Drone['health']> };
 
 const TICK_MS = 1000;
-const CRUISE_SPEED_MS = 220; // m/s - push the demo drone to move fast to incidents
+const CRUISE_SPEED_MS = 550; // m/s - MUCH FASTER! Realistic high-speed flight
 const STEP_DISTANCE_M = (CRUISE_SPEED_MS * TICK_MS) / 1000;
 const ARRIVAL_DISTANCE_M = 120;
 const CRITICAL_BATTERY_RETURN = 10;
+
+// Weaving parameters for realistic flight
+const WEAVE_AMPLITUDE = 0.00015; // Lateral offset in degrees (weave left/right)
+const WEAVE_FREQUENCY = 3; // How many weaves per journey
 
 const toRad = (deg: number) => (deg * Math.PI) / 180;
 
@@ -50,7 +54,7 @@ const headingBetween = (from: Position, to: Position) => {
   return ((bearing * 180) / Math.PI + 360) % 360;
 };
 
-const stepTowards = (current: Position, target: Position, maxStepMeters: number) => {
+const stepTowards = (current: Position, target: Position, maxStepMeters: number, addWeaving: boolean = false) => {
   const dist = distanceMeters(current, target);
   if (dist === 0) {
     return { position: target, distanceMoved: 0 };
@@ -59,11 +63,29 @@ const stepTowards = (current: Position, target: Position, maxStepMeters: number)
   const step = Math.min(dist, maxStepMeters);
   const ratio = step / dist;
 
+  // Base position (straight line)
+  let newLat = current[0] + (target[0] - current[0]) * ratio;
+  let newLng = current[1] + (target[1] - current[1]) * ratio;
+
+  // Add realistic weaving for enroute drones
+  if (addWeaving && dist > ARRIVAL_DISTANCE_M) {
+    // Calculate perpendicular direction (90 degrees to heading)
+    const heading = headingBetween(current, target);
+    const perpHeading = (heading + 90) % 360;
+    const perpRad = toRad(perpHeading);
+
+    // Weave based on remaining distance (creates zigzag pattern)
+    // Use distance as phase - creates consistent weaving
+    const weavePhase = (dist / 1000) * WEAVE_FREQUENCY;
+    const weaveOffset = Math.sin(weavePhase) * WEAVE_AMPLITUDE;
+
+    // Apply perpendicular offset
+    newLat += Math.cos(perpRad) * weaveOffset;
+    newLng += Math.sin(perpRad) * weaveOffset;
+  }
+
   return {
-    position: [
-      current[0] + (target[0] - current[0]) * ratio,
-      current[1] + (target[1] - current[1]) * ratio,
-    ] as Position,
+    position: [newLat, newLng] as Position,
     distanceMoved: step,
   };
 };
@@ -214,7 +236,8 @@ export const useMissionSimulation = () => {
             return;
           }
 
-          const step = stepTowards(currentPosition, incident.position, STEP_DISTANCE_M);
+          // REALISTIC WEAVING FLIGHT - zigzag left and right!
+          const step = stepTowards(currentPosition, incident.position, STEP_DISTANCE_M, true);
           const remaining = distanceMeters(step.position, incident.position);
 
           droneUpdates[drone.id] = {
@@ -277,10 +300,12 @@ export const useMissionSimulation = () => {
 
         const latestState = droneUpdates[drone.id]?.state ?? drone.state;
         if (latestState === DroneStates.RETURNING) {
+          // Return flight - fast and direct (no weaving)
           const step = stepTowards(
             droneUpdates[drone.id]?.position ?? drone.position,
             hub.position,
-            STEP_DISTANCE_M
+            STEP_DISTANCE_M,
+            false // Straight path when returning
           );
           const remaining = distanceMeters(step.position, hub.position);
 

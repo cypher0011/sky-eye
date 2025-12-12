@@ -40,10 +40,10 @@ const TerrainTile = ({
   useEffect(() => {
     const textureLoader = new THREE.TextureLoader();
 
-    // Load satellite texture (NO LABELS - pure satellite) - standard resolution for reliability
-    const tileUrl = `https://api.mapbox.com/v4/mapbox.satellite/${zoom}/${tileX}/${tileY}.jpg?access_token=${mapboxToken}`;
+    // Use modern Mapbox Raster Tiles API (more reliable than v4)
+    const tileUrl = `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/${zoom}/${tileX}/${tileY}?access_token=${mapboxToken}`;
 
-    console.log('Loading tile:', tileUrl);
+    console.log('Loading tile:', zoom, tileX, tileY);
 
     textureLoader.load(
       tileUrl,
@@ -54,16 +54,16 @@ const TerrainTile = ({
         loadedTexture.magFilter = THREE.LinearFilter;
         loadedTexture.anisotropy = 16;
         setTexture(loadedTexture);
-        console.log('Tile loaded successfully:', tileX, tileY);
+        console.log('✅ Tile loaded successfully:', tileX, tileY);
       },
       undefined,
       (error) => {
-        console.error('Error loading tile texture:', tileX, tileY, error);
-        console.error('URL:', tileUrl);
+        console.error('❌ Error loading tile:', tileX, tileY, error);
+        console.error('URL was:', tileUrl);
       }
     );
 
-    // Load terrain elevation - standard resolution
+    // Load terrain elevation (v4 API still works for terrain)
     const terrainUrl = `https://api.mapbox.com/v4/mapbox.terrain-rgb/${zoom}/${tileX}/${tileY}.png?access_token=${mapboxToken}`;
 
     textureLoader.load(
@@ -72,9 +72,10 @@ const TerrainTile = ({
         loadedHeightMap.wrapS = THREE.ClampToEdgeWrapping;
         loadedHeightMap.wrapT = THREE.ClampToEdgeWrapping;
         setHeightMap(loadedHeightMap);
+        console.log('✅ Terrain loaded:', tileX, tileY);
       },
       undefined,
-      () => console.warn('Terrain elevation not available for tile:', tileX, tileY)
+      () => console.warn('⚠️ Terrain elevation not available for tile:', tileX, tileY)
     );
   }, [tileX, tileY, zoom, mapboxToken]);
 
