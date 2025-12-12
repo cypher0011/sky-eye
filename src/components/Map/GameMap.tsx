@@ -50,8 +50,8 @@ const GameMap: React.FC = () => {
 
     return (
         <MapContainer
-            center={[24.7136, 46.6753]}
-            zoom={11}
+            center={[24.836869691774403, 46.74255175016113]}
+            zoom={13}
             style={{ height: '100%', width: '100%' }}
             className="z-0"
         >

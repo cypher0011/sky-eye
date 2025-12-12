@@ -129,7 +129,7 @@ const LiveFeed: React.FC<LiveFeedProps> = ({ drone, incident, availableDrones, o
     }, [isPushToTalking]);
 
     return (
-        <div className={`fixed z-[1000] bg-black border-2 border-drone-blue rounded-lg overflow-hidden shadow-2xl transition-all duration-300 ${isFullScreen ? 'inset-0 w-full h-full' : 'top-4 right-4 w-96'
+        <div className={`fixed z-[1000] bg-black border-2 border-drone-blue rounded-lg overflow-hidden shadow-2xl transition-all duration-300 ${isFullScreen ? 'inset-0 w-full h-full m-0 rounded-none' : 'top-4 right-4 w-[800px]'
             }`}>
             {/* Header */}
             <div className="bg-gray-900 p-2 flex justify-between items-center border-b border-gray-800 z-10 relative">
@@ -199,7 +199,7 @@ const LiveFeed: React.FC<LiveFeedProps> = ({ drone, incident, availableDrones, o
             </div>
 
             {/* Video Area (3D Scene) */}
-            <div className={`relative bg-gray-800 overflow-hidden group ${isFullScreen ? 'h-[calc(100vh-100px)]' : 'h-64'}`}>
+            <div className={`relative bg-gray-800 overflow-hidden group ${isFullScreen ? 'h-[calc(100vh-60px)]' : 'h-[600px]'}`}>
                 <div className={`w-full h-full ${thermalMode ? 'brightness-150 contrast-125 hue-rotate-180 invert' : ''}`}>
                     <Suspense fallback={<SceneLoader />}>
                         <SatelliteScene thermalMode={thermalMode} />

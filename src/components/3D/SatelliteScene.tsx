@@ -3,12 +3,11 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import DroneModel from './DroneModel';
 import DroneCamera, { CameraMode } from './DroneCamera';
-import { AtmosphericHaze, VolumetricClouds, GodRays, Birds } from './AtmosphericEffects';
 
-// Riyadh coordinates
+// Riyadh coordinates - Updated to specific location
 const RIYADH_CENTER = {
-  lat: 24.7136,
-  lng: 46.6753
+  lat: 24.836869691774403,
+  lng: 46.74255175016113
 };
 
 // Convert lat/lng to tile coordinates
@@ -41,8 +40,10 @@ const TerrainTile = ({
   useEffect(() => {
     const textureLoader = new THREE.TextureLoader();
 
-    // Load satellite texture (NO LABELS - pure satellite)
-    const tileUrl = `https://api.mapbox.com/v4/mapbox.satellite/${zoom}/${tileX}/${tileY}@2x.jpg?access_token=${mapboxToken}`;
+    // Load satellite texture (NO LABELS - pure satellite) - standard resolution for reliability
+    const tileUrl = `https://api.mapbox.com/v4/mapbox.satellite/${zoom}/${tileX}/${tileY}.jpg?access_token=${mapboxToken}`;
+
+    console.log('Loading tile:', tileUrl);
 
     textureLoader.load(
       tileUrl,
@@ -53,13 +54,17 @@ const TerrainTile = ({
         loadedTexture.magFilter = THREE.LinearFilter;
         loadedTexture.anisotropy = 16;
         setTexture(loadedTexture);
+        console.log('Tile loaded successfully:', tileX, tileY);
       },
       undefined,
-      (error) => console.error('Error loading tile texture:', error)
+      (error) => {
+        console.error('Error loading tile texture:', tileX, tileY, error);
+        console.error('URL:', tileUrl);
+      }
     );
 
-    // Load terrain elevation
-    const terrainUrl = `https://api.mapbox.com/v4/mapbox.terrain-rgb/${zoom}/${tileX}/${tileY}@2x.png?access_token=${mapboxToken}`;
+    // Load terrain elevation - standard resolution
+    const terrainUrl = `https://api.mapbox.com/v4/mapbox.terrain-rgb/${zoom}/${tileX}/${tileY}.png?access_token=${mapboxToken}`;
 
     textureLoader.load(
       terrainUrl,
@@ -69,18 +74,18 @@ const TerrainTile = ({
         setHeightMap(loadedHeightMap);
       },
       undefined,
-      () => console.warn('Terrain elevation not available for tile')
+      () => console.warn('Terrain elevation not available for tile:', tileX, tileY)
     );
   }, [tileX, tileY, zoom, mapboxToken]);
 
   return (
     <mesh ref={meshRef} rotation={[-Math.PI / 2, 0, 0]} position={[offsetX, 0, offsetZ]} receiveShadow castShadow>
-      <planeGeometry args={[200, 200, 200, 200]} /> {/* Higher resolution */}
+      <planeGeometry args={[200, 200, 200, 200]} /> {/* Good resolution */}
       {texture ? (
         <meshStandardMaterial
           map={texture}
           displacementMap={heightMap}
-          displacementScale={25} // More pronounced terrain
+          displacementScale={25} // Balanced terrain
           roughness={0.9}
           metalness={0.0}
           normalScale={[1, 1]}
@@ -95,12 +100,12 @@ const TerrainTile = ({
 // Enhanced 3D Satellite Terrain with multiple tiles
 const SatelliteTerrain = () => {
   const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN || 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw';
-  const zoom = 16;
+  const zoom = 16; // Balanced zoom level
   const centerTile = latLngToTile(RIYADH_CENTER.lat, RIYADH_CENTER.lng, zoom);
 
-  // Create 3x3 grid of tiles for larger area
+  // Create 3x3 grid of tiles
   const tiles = [];
-  const tileSize = 200;
+  const tileSize = 200; // Standard tile size
 
   for (let dx = -1; dx <= 1; dx++) {
     for (let dz = -1; dz <= 1; dz++) {
@@ -165,13 +170,13 @@ const DroneController = ({
   useFrame((_, delta) => {
     if (!droneRef.current) return;
 
-    // Flight physics
-    const acceleration = 15 * delta;
+    // FAST Flight physics - manual control only!
+    const acceleration = 30 * delta; // Fast acceleration!
     const rotAcceleration = 3 * delta;
-    const maxSpeed = 0.5;
-    const maxRotSpeed = 0.05;
+    const maxSpeed = .5; // Fast max speed!
+    const maxRotSpeed = 0.08; // Faster rotation
 
-    // Movement controls
+    // Manual controls ONLY - no autonomous movement
     if (keys.current['KeyW']) velocity.current.z = Math.max(velocity.current.z - acceleration, -maxSpeed);
     if (keys.current['KeyS']) velocity.current.z = Math.min(velocity.current.z + acceleration, maxSpeed);
     if (keys.current['KeyA']) rotationVelocity.current = Math.min(rotationVelocity.current + rotAcceleration, maxRotSpeed);
@@ -182,7 +187,7 @@ const DroneController = ({
     if (keys.current['KeyE']) velocity.current.x = Math.min(velocity.current.x + acceleration, maxSpeed * 0.5);
 
     // Dampening
-    velocity.current.multiplyScalar(0.92);
+    velocity.current.multiplyScalar(0.96);
     rotationVelocity.current *= 0.9;
 
     // Apply rotation
@@ -368,11 +373,7 @@ const SatelliteScene = ({
         {/* Satellite Terrain */}
         <SatelliteTerrain />
 
-        {/* Atmospheric Effects */}
-        <AtmosphericHaze />
-        <VolumetricClouds />
-        <GodRays />
-        <Birds />
+        {/* Atmospheric Effects - REMOVED clouds, sun, birds */}
 
         {/* Drone Model - start higher for better view */}
         <DroneModel ref={droneRef} position={[0, 40, 0]} />
